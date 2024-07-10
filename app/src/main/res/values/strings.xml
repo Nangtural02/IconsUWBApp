@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ICONS_UWB_APP</string>
+    <string name = "Home">Home</string>
+    <string name = "Location">Location</string>
+    <string name = "Data">Data</string>
+    <string name = "Settings">Settings</string>
+    <string name="environments_title_req">이름을 입력하세요</string>
+    <string name="SelectEnvironment">시스템 선택</string>
+    <string name="EnvironmentDetail">시스템 상세 정보</string>
+    <string name="AddNewEnvironment">새로운 시스템 추가</string>
+    <string name="Environment_Details">상세 정보</string>
+</resources>
