@@ -14,6 +14,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
+import com.example.icons_uwb_app.serial.SerialViewModel
 
 enum class HomeScreens(@StringRes val title:Int){
     Home(title = R.string.SelectEnvironment),
@@ -25,7 +26,8 @@ fun HomeNavHost(
     navController: NavHostController,
     mainViewModel: MainSerialViewModel,
     homeScreenViewModel: HomeScreenViewModel,
-    environmentEditViewModel: EnvironmentEditViewModel
+    environmentEditViewModel: EnvironmentEditViewModel,
+    serialViewModel: SerialViewModel
 ){
     val selectedEnvironmentState by homeScreenViewModel.getSelectedEnvironment().collectAsState(initial = UWBEnvironment(title = "Saddd"))
 
@@ -51,7 +53,8 @@ fun HomeNavHost(
                     navigateToEnvironmentEntry = { navController.navigate(HomeScreens.Entry.name) },
                     mainViewModel = mainViewModel,
                     homeScreenViewModel = homeScreenViewModel,
-                    environmentEditViewModel= environmentEditViewModel
+                    environmentEditViewModel= environmentEditViewModel,
+                    serialViewModel = serialViewModel
                 )
             }
             composable(HomeScreens.Detail.name) {

@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,18 +28,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.icons_uwb_app.AppViewModelProvider
+import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.MainUiState
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
 
 @Composable
 fun TopBar(navController: NavHostController,
-           mainUiState: MainUiState,
+           mainViewModel: MainSerialViewModel,
            modifier: Modifier = Modifier
 ){
-
+    val mainUiState by mainViewModel.uiState.collectAsState()
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.Bottom),
         horizontalAlignment = Alignment.Start,
@@ -97,7 +102,10 @@ fun TopBar(navController: NavHostController,
                     .height(42.dp)
             ) {
                 IconButton(
-                    onClick = { Log.d("Button", "Tag")},
+                    onClick = {
+                        Log.d("Button", "toggle distance circle")
+                        mainViewModel.toggleDistanceCircle()
+                              },
                     modifier = Modifier
                         .width(42.dp)
                         .height(42.dp)
@@ -145,6 +153,6 @@ fun TopBar(navController: NavHostController,
 @Composable
 fun TopBarPreview(){
     ICONS_UWB_APPTheme {
-        TopBar(navController = rememberNavController(), mainUiState = MainUiState())
+        TopBar(navController = rememberNavController(), mainViewModel = viewModel(factory = AppViewModelProvider.Factory))
     }
 }

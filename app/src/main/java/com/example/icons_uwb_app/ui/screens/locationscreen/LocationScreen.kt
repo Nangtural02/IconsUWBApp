@@ -4,7 +4,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,15 +24,58 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
+import com.example.icons_uwb_app.data.environments.getPoint
+import com.example.icons_uwb_app.data.rainging.toPoint
+import com.example.icons_uwb_app.serial.CoordinatePlane
+import com.example.icons_uwb_app.serial.SerialViewModel
 
 @Composable
-fun LocationScreen(mainViewModel: MainSerialViewModel) {
+fun LocationScreen(mainViewModel: MainSerialViewModel, serialViewModel: SerialViewModel) {
+    val data = serialViewModel.nowRangingData
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+        .fillMaxWidth()
+        .padding(end = 5.dp)) {
+        CoordinatePlane(
+            anchorList = mainViewModel.uiState.collectAsState().value.connectedEnvironmentAnchors.map { it.getPoint() },
+            pointsList = listOf(data.value.toPoint()),
+            distanceList = data.value.distanceList.map{it.distance},
+            displayDistanceCircle = mainViewModel.uiState.collectAsState().value.displayDistanceCircle
+        )
+        if(data.value.toPoint().z!=0f){
+            Text(text = "(${"%.2f".format(data.value.toPoint().x)},${"%.2f".format(data.value.toPoint().y)},±${"%.2f".format(data.value.toPoint().z)})",
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    lineHeight = 42.sp,
+                    fontFamily = FontFamily(Font(R.font.nanumgothicbold)),
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF000000)
+                )
+            )
+        }else{
+            Text(text = "(${"%.2f".format(data.value.toPoint().x)},${"%.2f".format(data.value.toPoint().y)})",
+                style = TextStyle(
+                    fontSize = 30.sp,
+                    lineHeight = 42.sp,
+                    fontFamily = FontFamily(Font(R.font.nanumgothicbold)),
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF000000)
+                )
+            )
+        }
+    }
+    /*
     val environmentImage = mainViewModel.uiState.collectAsState().value.connectedEnvironmentImage
-
-
     ZoomableBox {
         if(environmentImage == -1){
             Box(
@@ -61,7 +107,7 @@ fun LocationScreen(mainViewModel: MainSerialViewModel) {
                 )
             }
         }
-    }
+    }*/
 
     //ZoomableImage()
 }

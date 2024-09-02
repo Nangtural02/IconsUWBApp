@@ -19,14 +19,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.AlertDialog
 import androidx.compose.material.ButtonDefaults
+import androidx.compose.material.Card
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.IconButton
+import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,24 +45,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.data.environments.Anchor
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
+import com.example.icons_uwb_app.serial.Point
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
 import kotlinx.coroutines.launch
 
 @Composable
 fun EnvironmentDetailScreen(
     onNavigateUp : () -> Unit,
-    //homeScreenViewModel : HomeScreenViewModel,
-    selectedEnvironment : UWBEnvironment,
+    selectedEnvironment : UWBEnvironment?,
     environmentEditViewModel: EnvironmentEditViewModel
 ){
-    //val selectedEnvironmentState by homeScreenViewModel.getSelectedEnvironment().collectAsState(initial = UWBEnvironment(title = "Sex"))
-    //val selectedEnvironment = selectedEnvironmentState ?: UWBEnvironment(title = "Sibal?")
-    environmentEditViewModel.updateUiState(selectedEnvironment)
-
+    selectedEnvironment?.let {
+        environmentEditViewModel.updateUiState(selectedEnvironment)
+    }
     val coroutineScope = rememberCoroutineScope()
+    val showEnvironmentTitleEdit = remember{ mutableStateOf(false)}
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -68,7 +74,6 @@ fun EnvironmentDetailScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = PaddingValues(11.dp),
         content = {
-
             item{ //title
                 Row(
                     modifier = Modifier
@@ -85,10 +90,12 @@ fun EnvironmentDetailScreen(
                             fontFamily = FontFamily(Font(R.font.nanumsquareneootf_eb)),
                             fontWeight = FontWeight.Bold
                         )
-
                     )
                     IconButton(
-                        onClick = { Log.d("Button", "Title Edit")}
+                        onClick = {
+                            Log.d("Button", "Title Edit")
+                            showEnvironmentTitleEdit.value = true
+                        }
                     ){
                         Image(
                             painter = painterResource(id = R.drawable.edit),
@@ -106,8 +113,8 @@ fun EnvironmentDetailScreen(
                             onNavigateUp()
                             coroutineScope.launch {
                                 environmentEditViewModel.deleteNowEnvironment()
-                            }
 
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(Color.Red)
                     ){
@@ -116,16 +123,14 @@ fun EnvironmentDetailScreen(
                         )
                     }
                 }
-            }
+            }/*
             item{
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(248.dp)
                         .background(color = Color.White, shape = RoundedCornerShape(10.dp))
-                    ,
-                    contentAlignment = Alignment.Center
-
+                    ,contentAlignment = Alignment.Center
                 ){
                     if((environmentEditViewModel.uiState.collectAsState().value.imagePainterID) != 0){
                         Image(
@@ -150,10 +155,7 @@ fun EnvironmentDetailScreen(
                                 spotColor = Color(0x26000000),
                                 ambientColor = Color(0x26000000)
                             )
-
-
-                        ,
-                        shape = RoundedCornerShape(12.dp),
+                        ,shape = RoundedCornerShape(12.dp),
                         backgroundColor = Color(0xFF4F378B)
                     ) {
                         Image(painter = painterResource(id = R.drawable.edit),
@@ -161,54 +163,43 @@ fun EnvironmentDetailScreen(
                             colorFilter = ColorFilter.tint(Color(0xFFEADDFF))
                         )
                     }
-
-
                 }
             }
-
+            */
 
             if(environmentEditViewModel.uiState.value.anchors.isNotEmpty()) {
                 itemsIndexed(environmentEditViewModel.uiState.value.anchors) { index, anchor ->
-                    AnchorCard(index, anchor,
+                    AnchorCard(
+                        index,
+                        anchor,
                         toDeleteAnchor = {
                             Log.d("button","DeleteAnchor")
                             environmentEditViewModel.editDeleteAnchor(index)
-                            /*
-                            environmentEditViewModel.updateUiState(
-                                environmentEditViewModel.uiState.value.copy(
-                                    anchors = environmentEditViewModel.uiState.value.anchors.minus(anchor)
-                                )
-                            )*/
                             coroutineScope.launch {
                                 environmentEditViewModel.updateEnvironment()
                             }
                         },
-                        toResetAnchor = {
+                        toEditAnchor = {
                             Log.d("button", "resetAnchor")
 
-                            //environmentEditViewModel.uiState.value.anchors[selectedEnvironment.anchors.indexOf(anchor)] = Anchor(id= 354, name = "newew")
                             coroutineScope.launch {
-
                                 environmentEditViewModel.updateUiState(
                                     environmentEditViewModel.uiState.value.copy(
                                         anchors = environmentEditViewModel.uiState.value.anchors.toMutableList().apply{
-                                        //    this[environmentEditViewModel.uiState.value.anchors.indexOf(anchor)] = it
                                             this[index] = it
                                         }.toList()
                                     )
                                 )
                                 environmentEditViewModel.updateEnvironment()
                             }
-
                         }
                     )
-
                 }
             }
             item{
                 AddAnchorButton(modifier = Modifier) {
                     Log.d("button", "add anchor")
-                    environmentEditViewModel.editAddAnchor(Anchor(id = 345, name = "fdsa"))
+                    environmentEditViewModel.editAddAnchor(it)
                     coroutineScope.launch{
                         environmentEditViewModel.updateEnvironment()
                     }
@@ -216,10 +207,23 @@ fun EnvironmentDetailScreen(
             }
         }
     )
+    if(showEnvironmentTitleEdit.value){
+        TitleEditDialog(
+            onConfirm = {
+                environmentEditViewModel.updateUiState(it)
+                coroutineScope.launch{environmentEditViewModel.updateEnvironment()}
+                showEnvironmentTitleEdit.value = false
+                        },
+            onDismiss ={showEnvironmentTitleEdit.value = false}
+        )
+    }
 }
 
 @Composable
-fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toResetAnchor: (Anchor)->Unit = {}){
+fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toEditAnchor: (Anchor)->Unit = {}){
+    val showAnchorTitleEditDialog = remember{ mutableStateOf(false)}
+    val showAnchorEditDialog = remember{ mutableStateOf(false)}
+    if(anchor.name=="") anchor.name = "앵커 ${index+1}"
     Box(
         modifier = Modifier
             .width(364.dp)
@@ -239,8 +243,7 @@ fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toResetAnch
                 verticalAlignment = Alignment.CenterVertically
             ){
                 Text(
-                    text = if(anchor.name=="")"앵커 ${index+1}"
-                    else anchor.name,
+                    text = anchor.name,
                     style = TextStyle(
                         color = Color.Black,
                         fontSize = 26.sp,
@@ -250,7 +253,10 @@ fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toResetAnch
 
                 )
                 IconButton(
-                    onClick = { Log.d("Button", "Anchor Edit")}
+                    onClick = {
+                        Log.d("Button", "Anchor Edit")
+                        showAnchorTitleEditDialog.value = true
+                    }
                 ){
                     Image(
                         painter = painterResource(id = R.drawable.edit),
@@ -296,7 +302,8 @@ fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toResetAnch
                 TextButton(
                     onClick = {
                         Log.d("Button", "Reset Anchor")
-                        toResetAnchor(Anchor(id= 354, name = "newew"))
+                        //toResetAnchor(Anchor(id= 354, name = "newew"))
+                        showAnchorEditDialog.value = true
                               },
                     modifier = Modifier
                         .width(48.dp)
@@ -313,11 +320,22 @@ fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toResetAnch
                             fontFamily = FontFamily(Font(R.font.nanumsquareneootf_bd)),
                             fontWeight = FontWeight.Normal
                         ),
-
-
-                        )
+                    )
                 }
-
+                if(showAnchorTitleEditDialog.value){
+                    TitleEditDialog(
+                        onConfirm = {toEditAnchor(anchor.copy(name = it)); showAnchorTitleEditDialog.value = false},
+                        onDismiss = { showAnchorTitleEditDialog.value = false }
+                    )
+                }
+                if(showAnchorEditDialog.value){
+                    AnchorEditDialog(
+                        onConfirm = { id,x,y -> toEditAnchor(
+                            Anchor(id = id ?: anchor.id, coordinateX = x?:anchor.coordinateX, coordinateY = y?:anchor.coordinateY, name = anchor.name))
+                            showAnchorEditDialog.value = false},
+                        onDismiss = {showAnchorEditDialog.value = false}
+                    )
+                }
             }
         }
     }
@@ -326,15 +344,16 @@ fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toResetAnch
 @Composable
 fun AddAnchorButton(
     modifier: Modifier,
-    onClick: () -> Unit
+    onClick: (Anchor) -> Unit
 ){
+    val showAddAnchorDialog = remember{ mutableStateOf(false) }
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .width(364.dp)
             .height(123.dp)
             .background(color = Color(0xFFFFFFFF), shape = RoundedCornerShape(size = 10.dp))
-            .clickable { onClick() }
+            .clickable { showAddAnchorDialog.value = true }
     ) {
         Text(
             text = "새로운 앵커 추가",
@@ -346,7 +365,222 @@ fun AddAnchorButton(
             )
         )
     }
+    if(showAddAnchorDialog.value){
+        NewAnchorDialog(
+            onConfirm ={ name, id, x, y ->
+                onClick(
+                    Anchor(
+                        name = name ?:"",
+                        id = id ?: 0,
+                        coordinateX = x ?: 0f,
+                        coordinateY = y ?: 0f
+                    )
+                )
+                showAddAnchorDialog.value = false
+            },
+            onDismiss ={ showAddAnchorDialog.value = false }
+        )
+    }
 }
+
+@Preview
+@Composable
+fun TitleEditDialogPreview(){
+    ICONS_UWB_APPTheme {
+        TitleEditDialog({}, {})
+    }
+}
+
+@Composable
+fun TitleEditDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val textState = remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "이름 변경")
+        },
+        text = {
+            Column {
+                Card(modifier = Modifier.height(16.dp)){}
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = textState.value,
+                    onValueChange = { textState.value = it },
+                    label = { Text(text = "Name") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(textState.value) }) {
+                Text(text = "저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "취소")
+            }
+        },
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    )
+}
+
+@Composable
+fun AnchorEditDialog(
+    onConfirm: (Int?, Float?, Float?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isValid = remember{ mutableStateOf(true) }
+    val idState = remember { mutableStateOf("") }
+    val xState = remember { mutableStateOf("") }
+    val yState = remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "앵커 정보 변경")
+        },
+        text = {
+            Column {
+                Card(modifier = Modifier.height(16.dp)){}
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = idState.value,
+                    onValueChange = { idState.value = it },
+                    label = { Text(text = "Anchor ID") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                OutlinedTextField(
+                    value = xState.value,
+                    onValueChange = { xState.value = it },
+                    label = { Text(text = "X") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                OutlinedTextField(
+                    value = yState.value,
+                    onValueChange = { yState.value = it },
+                    label = { Text(text = "Y") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                if(!isValid.value){
+                    Text("잘못된 입력입니다")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                try {
+                    onConfirm(
+                        if (idState.value == "") null else idState.value.toInt(),
+                        if (xState.value == "") null else xState.value.toFloat(),
+                        if (yState.value == "") null else yState.value.toFloat()
+                    )
+                }catch(e:NumberFormatException){
+                    isValid.value = false
+                }
+            }) {
+                Text(text = "저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "취소")
+            }
+        },
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    )
+}
+@Preview
+@Composable
+fun NewAnchorDialogPreview(){
+    ICONS_UWB_APPTheme {
+        NewAnchorDialog({_,_,_,_ -> }, {})
+    }
+}
+@Composable
+fun NewAnchorDialog(
+    onConfirm: (String?, Int?, Float?, Float?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isValid = remember{ mutableStateOf(true)}
+    val nameState = remember { mutableStateOf("")}
+    val idState = remember { mutableStateOf("") }
+    val xState = remember { mutableStateOf("") }
+    val yState = remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "새로운 앵커 추가")
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nameState.value,
+                    onValueChange = { nameState.value = it },
+                    label = { Text(text = "Anchor Name") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                OutlinedTextField(
+                    value = idState.value,
+                    onValueChange = { idState.value = it },
+                    label = { Text(text = "Anchor ID") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                OutlinedTextField(
+                    value = xState.value,
+                    onValueChange = { xState.value = it },
+                    label = { Text(text = "X") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                OutlinedTextField(
+                    value = yState.value,
+                    onValueChange = { yState.value = it },
+                    label = { Text(text = "Y") },
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                if(!isValid.value){
+                    Text("잘못된 입력입니다")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                try {
+                    onConfirm(
+                        if (nameState.value == "") null else nameState.value,
+                        if (idState.value == "") null else idState.value.toInt(),
+                        if (xState.value == "") null else xState.value.toFloat(),
+                        if (yState.value == "") null else yState.value.toFloat()
+                    )
+                }catch(e:NumberFormatException){
+                    isValid.value = false
+                }
+            }) {
+                Text(text = "저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "취소")
+            }
+        },
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewAnchorEditDialog() {
+    AnchorEditDialog(
+        onConfirm = { id,x,y -> println("User input: $id,($x,$y)") },
+        onDismiss = { println("Dialog dismissed") }
+    )
+}
+
 
 @Preview
 @Composable

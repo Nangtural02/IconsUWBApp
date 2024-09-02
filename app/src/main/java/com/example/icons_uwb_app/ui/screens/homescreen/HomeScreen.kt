@@ -1,5 +1,6 @@
 package com.example.icons_uwb_app.ui.screens.homescreen
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -28,9 +29,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -41,11 +44,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.icons_uwb_app.AppViewModelProvider
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.data.environments.Anchor
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
+import com.example.icons_uwb_app.data.environments.UWBEnvironmentsRepository
+import com.example.icons_uwb_app.data.environments.getPoint
+import com.example.icons_uwb_app.serial.SerialViewModel
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreenTopBar(
@@ -89,7 +100,8 @@ fun HomeScreen(
     navigateToEnvironmentEntry: () -> Unit,
     mainViewModel: MainSerialViewModel,
     homeScreenViewModel: HomeScreenViewModel,
-    environmentEditViewModel: EnvironmentEditViewModel
+    environmentEditViewModel: EnvironmentEditViewModel,
+    serialViewModel: SerialViewModel
 ) {
     val homeUiState by homeScreenViewModel.homeUiState.collectAsState()
     LazyColumn(
@@ -101,12 +113,15 @@ fun HomeScreen(
                     title = environment.title,
                     index = environment.id,
                     anchors = environment.anchors,
-                    imagePainterID = environment.imagePainterID
+                    imagePainterID = environment.imagePainterID,
+                    lastConnected = environment.lastConnectedDate
                     , toDetails = {
                         homeScreenViewModel.setSelectedID(environment.id)
                         navigateToEnvironmentDetail(UWBEnvironment(id=environment.id,title=environment.title,anchors =environment.anchors, imagePainterID = environment.imagePainterID))
                     },
-                    mainViewModel = mainViewModel
+                    mainViewModel = mainViewModel,
+                    serialViewModel = serialViewModel,
+                    environmentEditViewModel = environmentEditViewModel
                 )
             }
             item{
@@ -117,9 +132,13 @@ fun HomeScreen(
 }
 
 @Composable
-fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imagePainterID: Int,
+fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imagePainterID: Int, lastConnected: String,
                        toDetails : () -> Unit,
-                       mainViewModel: MainSerialViewModel) {
+                       mainViewModel: MainSerialViewModel,
+                       environmentEditViewModel: EnvironmentEditViewModel,
+                       serialViewModel: SerialViewModel) {
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,7 +161,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                 modifier = Modifier
                     .fillMaxWidth()
 
-                    .height(46.dp)
+                    .height(50.dp)
 
             ) {
                 Text(
@@ -158,7 +177,6 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                     text = title
                 )
             }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth(),
@@ -173,7 +191,9 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                     horizontalAlignment = Alignment.Start
                 ) {
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(120.dp))
+                    Spacer(modifier = Modifier.width(160.dp))
+                    /*
                     if (imagePainterID != 0) {
                         Image(
                             painterResource(id = imagePainterID),
@@ -200,6 +220,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                             )
                         }
                     }
+                     */
                 }
                 Column(
                     modifier = Modifier
@@ -215,17 +236,22 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                         modifier = Modifier
                             .padding(start = 2.dp),
                         text = "마지막 연결 시점 :\n" +
-                                " 2000-00-00",
+                                lastConnected,
                         textAlign = TextAlign.Right
                     )
-                    if(mainViewModel.uiState.collectAsState().value.connectedEnvironmentID == index) {
+                    if(//serialViewModel.connectedUSBItem.asStateFlow().value != null &&
+                        mainViewModel.uiState.collectAsState().value.connectedEnvironmentID == index) {
                         Button(
                             onClick = {
                                 Log.d(
                                     "Button",
                                     "DisConnect to environment \"$title\" "
                                 )
-                                mainViewModel.disconnectEnvironment()
+
+                                coroutineScope.launch{
+                                    serialViewModel.disConnectSerialDevice()
+                                    mainViewModel.disconnectEnvironment()
+                                }
                             },
                             modifier = Modifier
                                 .width(150.dp)
@@ -245,9 +271,15 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                                     "Button",
                                     "Connect to environment \"$title\" "
                                 )/*Connection with environment*/
-                                mainViewModel.connectEnvironment(
-                                    UWBEnvironment(index, title, anchors, imagePainterID)
-                                )
+
+                                coroutineScope.launch {
+                                    serialViewModel.updateAnchorList(anchors)
+                                    serialViewModel.connectSerialDevice(context)
+                                    mainViewModel.connectEnvironment(
+                                        UWBEnvironment(index, title, anchors, imagePainterID)
+                                    )
+                                    environmentEditViewModel.updateUiState()
+                                }
                             },
                             modifier = Modifier
                                 .width(150.dp)
@@ -266,7 +298,6 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
 fun NewEnvironmentButton(
     onClick: () -> Unit
 ){
-
     Button(
         onClick = {
             Log.d("Button","Make new environment")
@@ -298,7 +329,7 @@ fun NewEnvironmentButton(
 @Composable
 fun EnvironmentProfilePreview(){
     ICONS_UWB_APPTheme {
-        EnvironmentProfile(title ="asdf" , index =1 , anchors = mutableListOf() , imagePainterID =R.drawable.ic_launcher_background, toDetails = {}, mainViewModel = MainSerialViewModel() )
+        EnvironmentProfile(title ="asdf" , index =1 , anchors = mutableListOf() , imagePainterID =R.drawable.ic_launcher_background, lastConnected = "2024-01-01" ,toDetails = {}, mainViewModel = MainSerialViewModel(), serialViewModel = SerialViewModel(application = Application()), environmentEditViewModel = viewModel(factory = AppViewModelProvider.Factory))
     }
 }
 @Preview(showBackground = true)

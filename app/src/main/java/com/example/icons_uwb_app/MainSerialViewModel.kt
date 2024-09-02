@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
+import com.hoho.android.usbserial.driver.*
+
 class MainSerialViewModel(): ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -29,7 +31,11 @@ class MainSerialViewModel(): ViewModel() {
         _uiState.update{ MainUiState() }
 
     }
-
-
+    fun toggleDistanceCircle(){
+        _uiState.update { currentState ->
+            currentState.copy(displayDistanceCircle = !currentState.displayDistanceCircle)
+        }
+    }
 
 }
+

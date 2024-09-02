@@ -1,5 +1,6 @@
 package com.example.icons_uwb_app.ui.screens.homescreen
 
+import android.icu.text.SimpleDateFormat
 import android.os.Environment
 import android.util.Log
 import androidx.compose.runtime.currentRecomposeScope
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.Date
 
 class EnvironmentEditViewModel (private val uwbEnvironmentsRepository: UWBEnvironmentsRepository): ViewModel() {
     private val _uiState: MutableStateFlow<UWBEnvironment> = MutableStateFlow(UWBEnvironment(title = "이름 입력"))
@@ -60,10 +62,12 @@ class EnvironmentEditViewModel (private val uwbEnvironmentsRepository: UWBEnviro
                 currentState -> currentState.copy(imagePainterID = newImage)
         }
     }
-    fun updateUiState(){
+    suspend fun updateUiState(){
         _uiState.update{
-            currentState -> currentState.copy(lastConnectedDate = "now")
+            currentState -> currentState.copy(lastConnectedDate = SimpleDateFormat("YY-MM-dd hh:mm").format(Date()))
         }
+        updateEnvironment()
+        Log.d("update","update now")
     }
 
     private fun validateInput(input: UWBEnvironment = _uiState.asStateFlow().value): Boolean{

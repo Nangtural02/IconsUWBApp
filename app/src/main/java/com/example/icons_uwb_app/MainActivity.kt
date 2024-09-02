@@ -15,14 +15,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
 import com.hoho.android.usbserial.*
 import android.bluetooth.*
+import androidx.activity.viewModels
+import com.example.icons_uwb_app.serial.SerialViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val serialViewModel: SerialViewModel by viewModels()
         //enableEdgeToEdge()
         setContent {
             ICONS_UWB_APPTheme {
-                ICONS_UWB_App()
+                ICONS_UWB_App(serialViewModel)
             }
         }
     }

@@ -66,6 +66,7 @@ fun EnvironmentEntryScreen(
     canNavigateBack: Boolean = true,
     environmentEditViewModel: EnvironmentEditViewModel
 ) {
+    environmentEditViewModel.resetEnvironment()
     val coroutineScope = rememberCoroutineScope()
     EnvironmentEntryBody(
         environmentEditViewModel = environmentEditViewModel,
@@ -87,8 +88,7 @@ fun EnvironmentEntryBody(
     modifier: Modifier = Modifier
 ) {
     val editingEnvironment = environmentEditViewModel.uiState.collectAsState().value
-
-    var titleEditDialog by rememberSaveable { mutableStateOf(false) }
+    val showTitleEditDialog = remember{mutableStateOf(false)}
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -125,7 +125,7 @@ fun EnvironmentEntryBody(
                 androidx.compose.material.IconButton(
                     onClick = {
                         Log.d("Button", "title Edit")
-                        titleEditDialog = true
+                        showTitleEditDialog.value = true
                         //toDo: new title popup 만들기
 
                     }
@@ -139,12 +139,28 @@ fun EnvironmentEntryBody(
                     )
                 }
             }
-        }
+        }/*
         item {
             NewImageButton(environmentEditViewModel, onValueChange)
-        }
+        }*/
         itemsIndexed(editingEnvironment.anchors) { index, anchor ->
-            AnchorCard(index, anchor, {})
+            AnchorCard(
+                index, anchor,
+                toDeleteAnchor = {
+                    Log.d("button","DeleteAnchor")
+                    environmentEditViewModel.editDeleteAnchor(index)
+                },
+                toEditAnchor = {
+                    Log.d("button", "resetAnchor")
+                    environmentEditViewModel.updateUiState(
+                        environmentEditViewModel.uiState.value.copy(
+                            anchors = environmentEditViewModel.uiState.value.anchors.toMutableList().apply{
+                                this[index] = it
+                            }.toList()
+                        )
+                    )
+                }
+            )
         }
         item {
             AddAnchorButton(
@@ -155,8 +171,7 @@ fun EnvironmentEntryBody(
                 )
             ) {
                 Log.d("button", "add anchor")
-                //toDo: new Anchor POPUP
-                environmentEditViewModel.editAddAnchor(Anchor(123,123))
+                environmentEditViewModel.editAddAnchor(it)
             }
         }
         item { //saveButton
@@ -183,15 +198,17 @@ fun EnvironmentEntryBody(
             }
         }
     }
-    if(titleEditDialog){
-        CustomTextFieldDialog(
-            initialText = "",
-            onClickCancel = { titleEditDialog = false },
-            instructionText = "시스템 이름을 입력하세요") {
-            titleEditDialog = false
-            environmentEditViewModel.updateUiState(newTitle = it)
-        }
+    if(showTitleEditDialog.value) {
+        TitleEditDialog(
+            onConfirm = {
+                environmentEditViewModel.updateUiState(it)
+                showTitleEditDialog.value = false
+            },
+            onDismiss = { showTitleEditDialog.value = false }
+
+        )
     }
+
 }
 
 @Composable
