@@ -52,6 +52,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
     private val windowSize = 10  // 이동 평균 필터의 윈도우 크기
     //
 
+    private val particleFilter = ParticleFilter(numParticles = 100, anchors = anchorList.map { it.getPoint() })
 
     /*setUp Parameter*/
     var baudRate = 115200
@@ -110,6 +111,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
 
             val validInput = distanceList.filter{it.id != -1}
             Log.e("asdf","$validInput")
+            val tempCoord = blockData.coordinates
             blockData.coordinates =
                 when(validInput.size){
                     4 -> calcMiddleBy4Side(validInput.map{it.distance}, validInput.map{validDistance -> anchorList.find{ it.id == validDistance.id }?.getPoint() ?: Point()})
@@ -117,6 +119,26 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
                     2 -> calcByDoubleAnchor(validInput.map{it.distance}, validInput.map{validDistance -> anchorList.find{ it.id == validDistance.id }?.getPoint() ?: Point()}, anchorList.map{it.getPoint()})
                     else -> blockData.coordinates
                 }
+            blockData.coordinates.z = 2.37f - blockData.coordinates.z
+            val epsilon = 0.001f // 허용 오차
+            if (kotlin.math.abs(blockData.coordinates.x) < epsilon && kotlin.math.abs(blockData.coordinates.y) < epsilon){
+                Log.e("Positioning Error", blockData.coordinates.toString())
+                blockData.coordinates = tempCoord
+            }
+            /*else{
+                // 파티클 필터 적용
+                val estimatedPosition = blockData.coordinates
+                particleFilter.predict(movementX = 0.0f, movementY = 0.0f)  // 예: 이동량은 직접 제공할 수 있음
+
+                // 거리 데이터를 이용한 파티클 가중치 업데이트
+                particleFilter.updateWeights(validInput.map { it.distance })
+
+                particleFilter.resample()
+
+                // 파티클 필터로 보정된 좌표를 사용
+                val correctedPosition = particleFilter.getEstimatedPosition()
+                blockData.coordinates = Point(correctedPosition.first, correctedPosition.second)
+            }*/
             nowRangingData.value = blockData
             viewModelScope.launch{
                 fileManager.writeCSVFile(blockData)
@@ -481,3 +503,74 @@ data class Data(
     @SerializedName("Block") val block: Int,
     @SerializedName("results") val results: List<Result>
 )
+
+data class Particle(var x: Float, var y: Float, var weight: Float)
+
+class ParticleFilter(private val numParticles: Int, private val anchors: List<Point>) {
+    private val particles = mutableListOf<Particle>()
+
+    init {
+        // 초기 파티클 생성 (랜덤한 초기 좌표)
+        repeat(numParticles) {
+            particles.add(Particle(x = Math.random().toFloat() * 8f, y = Math.random().toFloat() * 7f, weight = 1.0f))
+        }
+    }
+
+    // 파티클 이동 업데이트 (간단히 노이즈를 추가해 이동)
+    fun predict(movementX: Float, movementY: Float) {
+        val noiseFactor = 0.1f
+        particles.forEach { particle ->
+            particle.x += movementX + (Math.random().toFloat() - 0.5f) * noiseFactor
+            particle.y += movementY + (Math.random().toFloat() - 0.5f) * noiseFactor
+        }
+    }
+
+    // 실제 거리 데이터에 기반한 파티클 가중치 업데이트
+    fun updateWeights(distanceList: List<Float>) {
+        val weightNoise = 0.5f
+        particles.forEach { particle ->
+            // 각 앵커에 대한 예측 거리 계산
+            val predictedDistances = anchors.map { anchor ->
+                Math.hypot((particle.x - anchor.x).toDouble(), (particle.y - anchor.y).toDouble()).toFloat()
+            }
+
+            // 측정된 거리와 예측된 거리의 차이 기반 가중치 계산
+            var weight = 1.0f
+            for (i in predictedDistances.indices) {
+                val distanceError = Math.abs(predictedDistances[i] - distanceList[i])
+                weight *= Math.exp(-(distanceError.toDouble() / weightNoise.toDouble())).toFloat()
+            }
+            particle.weight = weight
+        }
+    }
+
+    // 파티클을 재샘플링하여 새로운 파티클 분포 생성
+    fun resample() {
+        val newParticles = mutableListOf<Particle>()
+        val maxWeight = particles.maxOf { it.weight }
+
+        repeat(numParticles) {
+            var index = (Math.random() * numParticles).toInt()
+            var beta = 0.0f
+            beta += (Math.random().toFloat() * 2.0f * maxWeight)
+
+            while (beta > particles[index].weight) {
+                beta -= particles[index].weight
+                index = (index + 1) % numParticles
+            }
+
+            // 선택된 파티클 복사
+            newParticles.add(Particle(particles[index].x, particles[index].y, 1.0f))
+        }
+
+        // 파티클 리스트 업데이트
+        particles.clear()
+        particles.addAll(newParticles)
+    }
+
+    // 최종 위치 추정 (가중치가 가장 큰 파티클의 좌표)
+    fun getEstimatedPosition(): Pair<Float, Float> {
+        val bestParticle = particles.maxByOrNull { it.weight }
+        return Pair(bestParticle!!.x, bestParticle!!.y)
+    }
+}

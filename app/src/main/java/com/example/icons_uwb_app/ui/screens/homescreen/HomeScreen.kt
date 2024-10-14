@@ -45,9 +45,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import coil.request.CachePolicy
-import coil.request.ImageRequest
 import com.example.icons_uwb_app.AppViewModelProvider
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
@@ -161,7 +158,8 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageU
                        toDetails : () -> Unit,
                        mainViewModel: MainSerialViewModel,
                        environmentEditViewModel: EnvironmentEditViewModel,
-                       serialViewModel: SerialViewModel) {
+                       serialViewModel: SerialViewModel,
+                       toUpdateHomeUi: () -> Unit = {}) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -228,7 +226,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageU
 
                     //Spacer(modifier = Modifier.height(120.dp))
                     //Spacer(modifier = Modifier.width(160.dp))
-
+                    /*
                     if (imageUri != null) {
                         Log.d("HomeImage","imageUri: $imageUri")
                         AsyncImage(
@@ -243,15 +241,15 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageU
                                 .width(160.dp)
                                 .height(110.dp)
                         )
-                    } else {
+                    } else {*/
                         Log.d("HomeImage","nononononon")
                         Box(
                             modifier = Modifier
-                                .background(Color.LightGray)
+                                .background(Color.Transparent)
                                 .width(160.dp)
                                 .height(110.dp),
                             contentAlignment = Alignment.Center
-                        ) {
+                        ) {/*
                             Text(
                                 text = "No image",
                                 style = TextStyle(
@@ -259,9 +257,9 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageU
                                     fontFamily = FontFamily(Font(R.font.nanumgothicbold)),
                                     fontWeight = FontWeight.Bold
                                 )
-                            )
+                            )*/
                         }
-                    }
+                    //}
 
                 }
                 Column(
@@ -321,6 +319,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageU
                                         UWBEnvironment(index, title, anchors, imageUri)
                                     )
                                     environmentEditViewModel.updateUiState()
+
                                 }
                             },
                             modifier = Modifier

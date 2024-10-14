@@ -1,14 +1,17 @@
 package com.example.icons_uwb_app.ui.screens.locationscreen
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,13 +27,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
@@ -47,7 +45,8 @@ fun LocationScreen(mainViewModel: MainSerialViewModel, serialViewModel: SerialVi
         modifier = Modifier
         .fillMaxWidth()
         .padding(end = 5.dp)) {
-        ZoomableBox {
+        ZoomableBox(modifier = Modifier.fillMaxWidth()
+            .aspectRatio(1f)) {
                 AsyncImage(
                     model = mainViewModel.uiState.collectAsState().value.connectedEnvironmentImage,
                     contentDescription = "backGroundImage"
@@ -65,7 +64,9 @@ fun LocationScreen(mainViewModel: MainSerialViewModel, serialViewModel: SerialVi
                     offsetY = offsetY
                 )
         }
-
+        Spacer(modifier = Modifier.height(2.dp))
+        Log.d("Text",data.value.toString())
+        /*
         if(data.value.toPoint().z!=0f){
             Text(text = "(${"%.2f".format(data.value.toPoint().x)},${"%.2f".format(data.value.toPoint().y)},±${"%.2f".format(data.value.toPoint().z)})",
                 style = TextStyle(
@@ -87,6 +88,7 @@ fun LocationScreen(mainViewModel: MainSerialViewModel, serialViewModel: SerialVi
                 )
             )
         }
+         */
     }
     /*
     val environmentImage = mainViewModel.uiState.collectAsState().value.connectedEnvironmentImage
