@@ -8,27 +8,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.icons_uwb_app.R
-import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
+import com.example.icons_uwb_app.serial.SerialViewModel
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(serialViewModel: SerialViewModel) {
+    val rawString = serialViewModel.nowBlockString
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(color = Color.Green)
     ) {
         Text(
-            text = stringResource(id = R.string.Settings),
+            text = rawString.value,
             textAlign = TextAlign.Center,
             color = Color.White,
             modifier = Modifier.align(Alignment.Center)
         )
     }
 }
+
+/*
 @Preview(showBackground = true)
 @Composable
 fun SettingsPreview() {
@@ -36,3 +36,5 @@ fun SettingsPreview() {
         SettingsScreen()
     }
 }
+
+ */

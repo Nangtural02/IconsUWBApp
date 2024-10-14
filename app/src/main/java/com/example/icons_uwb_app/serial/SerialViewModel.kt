@@ -22,8 +22,6 @@ import com.example.icons_uwb_app.data.environments.getPoint
 import com.example.icons_uwb_app.data.rainging.FileManager
 import com.example.icons_uwb_app.data.rainging.RangingData
 import com.example.icons_uwb_app.data.rainging.RangingDistance
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
 import com.google.gson.annotations.SerializedName
 import com.hoho.android.usbserial.BuildConfig
 import com.hoho.android.usbserial.driver.CdcAcmSerialDriver
@@ -45,6 +43,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
     //data to Update
     var anchorList = listOf(Anchor())
     var nowRangingData : MutableState<RangingData> = mutableStateOf(RangingData())
+    var nowBlockString : MutableState<String> = mutableStateOf("not Connected")
     //
 
     //for Moving Average Filter
@@ -52,11 +51,13 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
     private val windowSize = 10  // 이동 평균 필터의 윈도우 크기
     //
 
-    private val particleFilter = ParticleFilter(numParticles = 100, anchors = anchorList.map { it.getPoint() })
+    //private val particleFilter = ParticleFilter(numParticles = 100, anchors = anchorList.map { it.getPoint() })
 
     /*setUp Parameter*/
     var baudRate = 115200
     /*setUp Parameter*/
+
+    /*
      //JSON Parsing and handle for DWM3001CDK CLI build
     private fun blockHandler(blockString: String){
         viewModelScope.launch{ fileManager.writeTextFile(blockString + "\n") }
@@ -149,8 +150,9 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
             Log.e("SerialViewModel","nullPointer -")
         }
     }
+     */
 
-    /*
+
     //parsing custom data format for DWM3001CDK, which is "{ID(int), BlockNum(int), Distance(float)}"
     // 새 포맷을 위한 데이터 클래스 선언
     data class ParsedData(val id: Int, val blockNum: Int, val distance: Float)
@@ -163,7 +165,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
     // blockHandler 함수
     private fun blockHandler(blockString: String) {
         viewModelScope.launch { fileManager.writeTextFile(blockString + "\n") }
-
+        nowBlockString.value = blockString
         // 새 포맷의 데이터 파싱
         val parsedData = parseData(blockString)
 
@@ -196,12 +198,41 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
         val currentBlockData = dataBuffer[blockNum]
         if (currentBlockData != null && currentBlockData.isNotEmpty()) {
             try {
-                val distanceList: List<RangingDistance> = currentBlockData.map { data ->
+                val distanceList: List<RangingDistance> = currentBlockData.map { result ->
+                    //Use not adjusted(raw)
+                    /*
                     RangingDistance(
-                        id = data.id,
-                        distance = data.distance,
+                        id = result.id,
+                        distance = result.distance,     //!!! be Careful about M or CM
                         PDOA = null, // AOA 제거
                         AOA = null
+                    )*/
+                    //
+                    //Insert Moving Average Filter
+                    val id = result.id
+                    val rawDistance = result.distance.toFloat() / 100
+
+                    // 이동 평균 필터 적용
+                    val filteredDistance = if (id != -1) {
+                        val buffer = distanceBuffers.getOrPut(id) { mutableListOf() }
+
+                        // 새로운 거리값 추가
+                        buffer.add(rawDistance)
+
+                        // 윈도우 크기 초과 시 가장 오래된 값 제거
+                        if (buffer.size > windowSize) {
+                            buffer.removeAt(0)
+                        }
+
+                        // 버퍼의 평균값 계산
+                        buffer.average().toFloat()
+                    } else {
+                        rawDistance
+                    }
+
+                    RangingDistance(
+                        id = id,
+                        distance = filteredDistance
                     )
                 }
 
@@ -214,7 +245,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
                 val validInput = distanceList.filter { it.id != -1 }
                 Log.e("asdf",anchorList.toString())
                 Log.e("asdf", "$validInput")
-
+                val tempCoord = nowRangingData.value.coordinates
                 blockData.coordinates =
                     when (validInput.size) {
                         4 -> calcMiddleBy4Side(validInput.map { it.distance }, validInput.map { validDistance -> anchorList.find { it.id == validDistance.id }?.getPoint() ?: Point() })
@@ -222,6 +253,12 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
                         2 -> calcByDoubleAnchor(validInput.map { it.distance }, validInput.map { validDistance -> anchorList.find { it.id == validDistance.id }?.getPoint() ?: Point() }, anchorList.map { it.getPoint() })
                         else -> Point()
                     }
+                blockData.coordinates.z = 2.37f - blockData.coordinates.z
+                val epsilon = 0.001f // 허용 오차
+                if (kotlin.math.abs(blockData.coordinates.x) < epsilon && kotlin.math.abs(blockData.coordinates.y) < epsilon){
+                    Log.e("Positioning Error", blockData.coordinates.toString())
+                    blockData.coordinates = tempCoord
+                }
 
                 nowRangingData.value = blockData
 
@@ -260,7 +297,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
         }
     }
 
-     */
+
 
 
 
@@ -381,7 +418,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
     private var _buffer = mutableStateOf("")
 
     //for JSON
-
+    /*
     override fun onNewData(data: ByteArray?) { // called when get data
         viewModelScope.launch{
             if(data != null) {
@@ -405,9 +442,10 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
             }
         }
     }
+*/
+    // For Custom Data Format ( {~~~~~} )
 
-    /*
-    override fun onNewData(data: ByteArray?) { // For Custom Data Format ( {~~~~~} )
+    override fun onNewData(data: ByteArray?) {
         viewModelScope.launch{
             if(data != null) {
                 if (data.isNotEmpty()) {
@@ -429,7 +467,7 @@ class SerialViewModel(application: Application): AndroidViewModel(application), 
             }
         }
     }
-     */
+
 
 
     override fun onRunError(e: Exception) {

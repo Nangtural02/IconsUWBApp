@@ -31,7 +31,7 @@ fun AppNavGraph(navController: NavHostController, mainViewModel : MainSerialView
             DataScreen()
         }
         composable(BottomNavItem.Settings.screenRoute) {
-            SettingsScreen()
+            SettingsScreen(serialViewModel)
         }
     }
 }
