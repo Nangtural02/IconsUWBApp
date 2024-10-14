@@ -1,9 +1,8 @@
 package com.example.icons_uwb_app.serial
 
-import android.util.Half.toFloat
 import android.util.Log
-import androidx.collection.mutableFloatListOf
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
@@ -20,21 +19,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.widget.EdgeEffectCompat.getDistance
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
-import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.ceil
-import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.sin
 import kotlin.math.sqrt
-import kotlin.math.tan
 
 fun calcMiddleBy4Side(distances: List<Float>, anchorPosition: List<Point>): Point {
+    Log.d("QWERQWEER",anchorPosition.toString())
     val x = anchorPosition.map{it.x}
     val y = anchorPosition.map{it.y}
     val d = distances.map{it}
@@ -80,7 +74,7 @@ fun calcMiddleBy4Side(distances: List<Float>, anchorPosition: List<Point>): Poin
         if(distances[i].pow(2) >= meanArray[i].pow(2))
             zArray.add(sqrt(distances[i].pow(2) - meanArray[i].pow(2)))
     }
-
+    Log.d("calc_4", "${Point(meanPoint.x, meanPoint.y, zArray.average().toFloat())}")
     return Point(meanPoint.x,meanPoint.y,zArray.average().toFloat())
 }
 
@@ -207,7 +201,7 @@ fun calcByDoubleAnchor(anchor1:Int, anchor2: Int, distances: List<Float>, anchor
 fun generateRight(x:Float, y:Float, d:Float, z: Float= 0f): Float{
     return x*x + y*y + z*z - d*d
 }
-
+/*
 @Composable
 fun CoordinatePlane(
     anchorList: List<Point>,
@@ -325,6 +319,139 @@ fun CoordinatePlane(
         }
     }
 }
+*/
+
+@Composable
+fun CoordinatePlane(
+    anchorList: List<Point>,
+    pointsList: List<Point>,
+    distanceList: List<Float>? = null,
+    displayDistanceCircle: Boolean = false,
+    toggleGrid: Boolean = true,
+    toggleAxis: Boolean = true,
+    scale: Float = 1f,  // 줌 값 추가
+    offsetX: Float = 0f,  // X축 오프셋 추가
+    offsetY: Float = 0f   // Y축 오프셋 추가
+) {
+    val colors = listOf(
+        Color.Magenta,
+        Color.Green,
+        Color.Blue,
+        Color.DarkGray,
+        Color.Cyan,
+        Color.Gray,
+        Color.LightGray
+    )
+    var max = 10f
+    var min = -1f
+
+    if (anchorList.isNotEmpty()) {
+        max = anchorList.maxOf { ceil(max(it.x, it.y)) }
+        min = anchorList.minOf { floor(min(it.x, it.y)) } - 1f
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)  // Set the height to match the width
+            .padding(6.dp),
+        colors = CardDefaults.cardColors(Color.Transparent),
+        elevation = CardDefaults.cardElevation(0.dp),
+    ) {
+        Box(modifier = Modifier.padding(5.dp)) {
+            Canvas(modifier = Modifier.fillMaxSize()
+                .background(Color.Transparent)) {
+                val width = size.width
+                val localMax: Float = if (min < 0) max - min else max
+                val localMin: Float = if (min < 0) 0f else min
+                val localAxis: Float = if (min < 0) -min else 0f
+                val baseScale = width / (max - min)
+                val finalScale = baseScale * scale  // scale 적용
+                val originX = (localMin + localAxis) * finalScale + offsetX  // offset 적용
+                val originY = (localMax - localAxis) * finalScale + offsetY  // offset 적용
+                val step = (max - min).toInt()
+
+                if(toggleGrid) {
+                    for (i in 0..step) {
+                        val x: Float = (localMin + i) * finalScale + offsetX
+                        val y: Float = (localMax - i) * finalScale + offsetY
+                        drawLine(
+                            color = Color.LightGray,
+                            start = Offset(x, 0f),
+                            end = Offset(x, width),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                        drawLine(
+                            color = Color.LightGray,
+                            start = Offset(0f, y),
+                            end = Offset(width, y),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+                }
+
+                // Draw X-axis and Y-axis
+                if(toggleAxis) {
+                    drawLine(
+                        color = Color.Gray,
+                        start = Offset(0f, originY),
+                        end = Offset(width, originY),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                    drawLine(
+                        color = Color.Gray,
+                        start = Offset(originX, 0f),
+                        end = Offset(originX, width),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                }
+
+                if (anchorList.isNotEmpty()) {
+                    anchorList.forEach { point ->
+                        val scaledX = point.x * finalScale + offsetX  // scale과 offset 적용
+                        val scaledY = point.y * finalScale + offsetY  // scale과 offset 적용
+                        drawCircle(
+                            color = Color.Red,
+                            radius = 3.dp.toPx(),
+                            center = Offset(
+                                x = scaledX + originX,
+                                y = originY - scaledY
+                            )
+                        )
+
+                        // Draw distance circles if needed
+                        if (distanceList != null && distanceList.size <= anchorList.size && displayDistanceCircle) {
+                            drawCircle(
+                                color = Color.LightGray,
+                                radius = (distanceList[anchorList.indexOf(point)] * finalScale),
+                                center = Offset(
+                                    x = scaledX + originX,
+                                    y = originY - scaledY
+                                ),
+                                style = Stroke(width = 2.dp.toPx())
+                            )
+                        }
+                    }
+
+                    // Draw points with different colors for each list
+                    pointsList.forEachIndexed { index, point ->
+                        val color = colors.getOrElse(index) { Color.Black }
+                        val scaledX = point.x * finalScale + offsetX  // scale과 offset 적용
+                        val scaledY = point.y * finalScale + offsetY  // scale과 offset 적용
+                        drawCircle(
+                            color = color,
+                            radius = 2.dp.toPx(),
+                            center = Offset(
+                                x = scaledX + originX,
+                                y = originY - scaledY
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Preview(showBackground = true)
 @Composable
@@ -383,7 +510,8 @@ fun TwoAnchorPreview(){
             CoordinatePlane(
                 anchorList = anchors,
                 pointsList = pointsList,
-                distanceList = distances
+                distanceList = distances,
+                toggleGrid = false
 
             )
             pointsList.forEach{

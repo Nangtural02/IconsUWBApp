@@ -1,6 +1,10 @@
 package com.example.icons_uwb_app.ui.screens.homescreen
 
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,7 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,29 +25,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -54,11 +51,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
 import com.example.icons_uwb_app.R
-import com.example.icons_uwb_app.data.environments.Anchor
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
-import com.example.icons_uwb_app.ui.screens.navigation.NavigationDestination
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 
 @Composable
 fun EnvironmentEntryScreen(
@@ -89,6 +89,7 @@ fun EnvironmentEntryBody(
 ) {
     val editingEnvironment = environmentEditViewModel.uiState.collectAsState().value
     val showTitleEditDialog = remember{mutableStateOf(false)}
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -139,10 +140,10 @@ fun EnvironmentEntryBody(
                     )
                 }
             }
-        }/*
+        }
         item {
             NewImageButton(environmentEditViewModel, onValueChange)
-        }*/
+        }
         itemsIndexed(editingEnvironment.anchors) { index, anchor ->
             AnchorCard(
                 index, anchor,
@@ -300,7 +301,35 @@ fun CustomTextFieldDialog(
 }
 @Composable
 fun NewImageButton(viewModel: EnvironmentEditViewModel, onValueChange: (UWBEnvironment) -> Unit){
-    val EditingImage: Int = viewModel.uiState.collectAsState().value.imagePainterID
+    val EditingImage: Uri? = viewModel.uiState.collectAsState().value.imageUri
+
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+    val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if(uri != null) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri)
+                val file = File(context.cacheDir, "selected_image_${UUID.randomUUID()}.jpg")
+                val outputStream = FileOutputStream(file)
+
+                inputStream?.use { input ->
+                    outputStream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                val newUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                Log.d("ImageAccess", "File copied to local storage: $newUri")
+                viewModel.editChangeImage(newUri)
+                // 이 newUri를 데이터베이스에 저장하여 사용
+            } catch (e: Exception) {
+                Log.e("ImageAccess", "Failed to copy URI content to local storage", e)
+            }
+
+        }
+
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -310,9 +339,10 @@ fun NewImageButton(viewModel: EnvironmentEditViewModel, onValueChange: (UWBEnvir
         contentAlignment = Alignment.Center
 
     ){
-        if((EditingImage) != 0) {
-            Image(
-                painterResource(id = EditingImage),
+        if(EditingImage != null) {
+            Log.d("EntryImage","Uri: $EditingImage")
+            AsyncImage(
+                model = EditingImage,
                 contentDescription = null,
                 modifier = Modifier
                     .matchParentSize(),
@@ -322,7 +352,8 @@ fun NewImageButton(viewModel: EnvironmentEditViewModel, onValueChange: (UWBEnvir
                 onClick = { Log.d("button", "edit image")
                     //Change image
                     //onValueChange(tempEnvironment.copy(imagePainterID = R.drawable.settings))
-                    viewModel.editChangeImage(newImage = R.drawable.settings)
+                    //viewModel.editChangeImage(newImage = null) //todo: change image
+                    launcher.launch("image/*")
                 },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -352,7 +383,9 @@ fun NewImageButton(viewModel: EnvironmentEditViewModel, onValueChange: (UWBEnvir
                 onClick = {
                     Log.d("Button","Insert Image")
                     //toDo: Insert Image popup
-                    viewModel.editChangeImage(newImage = R.drawable.ex_paldal1f)
+                    launcher.launch("image/*")
+
+                    //viewModel.editChangeImage(newImage = R.drawable.ex_paldal1f)
                     //onValueChange(tempEnvironment.copy(imagePainterID = tempEnvironment.imagePainterID))
                 },
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFD9D9D9)),

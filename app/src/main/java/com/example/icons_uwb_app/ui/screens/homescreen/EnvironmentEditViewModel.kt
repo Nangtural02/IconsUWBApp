@@ -1,6 +1,7 @@
 package com.example.icons_uwb_app.ui.screens.homescreen
 
 import android.icu.text.SimpleDateFormat
+import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import androidx.compose.runtime.currentRecomposeScope
@@ -57,9 +58,9 @@ class EnvironmentEditViewModel (private val uwbEnvironmentsRepository: UWBEnviro
         )
     }
 
-    fun editChangeImage(newImage: Int){
+    fun editChangeImage(newImage: Uri?){
         _uiState.update{
-                currentState -> currentState.copy(imagePainterID = newImage)
+                currentState -> currentState.copy(imageUri = newImage)
         }
     }
     suspend fun updateUiState(){
@@ -72,7 +73,7 @@ class EnvironmentEditViewModel (private val uwbEnvironmentsRepository: UWBEnviro
 
     private fun validateInput(input: UWBEnvironment = _uiState.asStateFlow().value): Boolean{
         return with(input){
-            !((title=="이름 입력")&&imagePainterID ==0 && anchors.isEmpty())//아무 것도 건드리지 않았을 때 저장 X
+            !((title=="이름 입력")&&imageUri == null && anchors.isEmpty())//아무 것도 건드리지 않았을 때 저장 X
         }
     }
     suspend fun saveEnvironment(){

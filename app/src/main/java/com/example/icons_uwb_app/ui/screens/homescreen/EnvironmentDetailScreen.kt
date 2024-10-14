@@ -1,6 +1,10 @@
 package com.example.icons_uwb_app.ui.screens.homescreen
 
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -46,12 +51,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.data.environments.Anchor
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
-import com.example.icons_uwb_app.serial.Point
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 
 @Composable
 fun EnvironmentDetailScreen(
@@ -61,6 +71,33 @@ fun EnvironmentDetailScreen(
 ){
     selectedEnvironment?.let {
         environmentEditViewModel.updateUiState(selectedEnvironment)
+    }
+
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+    val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if(uri != null) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri)
+                val file = File(context.cacheDir, "selected_image.jpg")
+                val outputStream = FileOutputStream(file)
+
+                inputStream?.use { input ->
+                    outputStream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                val newUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                Log.d("ImageAccess", "File copied to local storage: $newUri")
+                environmentEditViewModel.editChangeImage(newUri)
+                // 이 newUri를 데이터베이스에 저장하여 사용
+            } catch (e: Exception) {
+                Log.e("ImageAccess", "Failed to copy URI content to local storage", e)
+            }
+
+        }
     }
     val coroutineScope = rememberCoroutineScope()
     val showEnvironmentTitleEdit = remember{ mutableStateOf(false)}
@@ -123,7 +160,7 @@ fun EnvironmentDetailScreen(
                         )
                     }
                 }
-            }/*
+            }
             item{
                 Box(
                     modifier = Modifier
@@ -132,16 +169,28 @@ fun EnvironmentDetailScreen(
                         .background(color = Color.White, shape = RoundedCornerShape(10.dp))
                     ,contentAlignment = Alignment.Center
                 ){
-                    if((environmentEditViewModel.uiState.collectAsState().value.imagePainterID) != 0){
-                        Image(
-                            painterResource(id = environmentEditViewModel.uiState.collectAsState().value.imagePainterID),
+                    if((environmentEditViewModel.uiState.collectAsState().value.imageUri) != null){
+                        Log.d("DetailImage","DetailImageUri: $environmentEditViewModel.uiState.collectAsState().value.imageUri")
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(environmentEditViewModel.uiState.collectAsState().value.imageUri)
+                                .diskCachePolicy(CachePolicy.DISABLED) // 디스크 캐시 활성화
+                                .memoryCachePolicy(CachePolicy.DISABLED) // 메모리 캐시 활성화
+                                .build(),
                             contentDescription = null,
                             modifier = Modifier
                                 .matchParentSize(),
                         )
                     }
                     FloatingActionButton(
-                        onClick = { Log.d("button","edit image")},
+                        onClick = {
+                            //todo: edit image button
+                            Log.d("button","edit image")
+                            launcher.launch("image/*")
+                            coroutineScope.launch{
+                                environmentEditViewModel.updateEnvironment()
+                            }
+                                  },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(4.dp)
@@ -165,7 +214,7 @@ fun EnvironmentDetailScreen(
                     }
                 }
             }
-            */
+
 
             if(environmentEditViewModel.uiState.value.anchors.isNotEmpty()) {
                 itemsIndexed(environmentEditViewModel.uiState.value.anchors) { index, anchor ->
@@ -219,16 +268,16 @@ fun EnvironmentDetailScreen(
     }
 }
 
-@Composable
-fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toEditAnchor: (Anchor)->Unit = {}){
-    val showAnchorTitleEditDialog = remember{ mutableStateOf(false)}
-    val showAnchorEditDialog = remember{ mutableStateOf(false)}
-    if(anchor.name=="") anchor.name = "앵커 ${index+1}"
-    Box(
-        modifier = Modifier
-            .width(364.dp)
-            .height(123.dp)
-            .background(color = Color(0xFFFFFFFF), shape = RoundedCornerShape(size = 10.dp))
+        @Composable
+        fun AnchorCard(index: Int, anchor: Anchor, toDeleteAnchor: ()->Unit, toEditAnchor: (Anchor)->Unit = {}){
+            val showAnchorTitleEditDialog = remember{ mutableStateOf(false)}
+            val showAnchorEditDialog = remember{ mutableStateOf(false)}
+            if(anchor.name=="") anchor.name = "앵커 ${index+1}"
+            Box(
+                modifier = Modifier
+                    .width(364.dp)
+                    .height(123.dp)
+                    .background(color = Color(0xFFFFFFFF), shape = RoundedCornerShape(size = 10.dp))
     ){
         Column(
             modifier = Modifier

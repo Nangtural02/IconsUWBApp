@@ -1,16 +1,11 @@
 package com.example.icons_uwb_app
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
-import com.example.icons_uwb_app.data.environments.UWBEnvironmentsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-
-import com.hoho.android.usbserial.driver.*
 
 class MainSerialViewModel(): ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
@@ -21,7 +16,7 @@ class MainSerialViewModel(): ViewModel() {
             currentState.copy(
                 connectedEnvironmentID = targetEnvironment.id,
                 connectedEnvironmentName = targetEnvironment.title,
-                connectedEnvironmentImage = targetEnvironment.imagePainterID,
+                connectedEnvironmentImage = targetEnvironment.imageUri,
                 connectedEnvironmentAnchors = targetEnvironment.anchors
             )
         }
@@ -33,7 +28,7 @@ class MainSerialViewModel(): ViewModel() {
     }
     fun toggleDistanceCircle(){
         _uiState.update { currentState ->
-            currentState.copy(displayDistanceCircle = !currentState.displayDistanceCircle)
+            currentState.copy(toggleDistanceCircle = !currentState.toggleDistanceCircle)
         }
     }
 

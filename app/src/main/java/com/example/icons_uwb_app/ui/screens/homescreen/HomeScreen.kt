@@ -1,6 +1,7 @@
 package com.example.icons_uwb_app.ui.screens.homescreen
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,18 +44,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.example.icons_uwb_app.AppViewModelProvider
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.data.environments.Anchor
 import com.example.icons_uwb_app.data.environments.UWBEnvironment
-import com.example.icons_uwb_app.data.environments.UWBEnvironmentsRepository
-import com.example.icons_uwb_app.data.environments.getPoint
 import com.example.icons_uwb_app.serial.SerialViewModel
 import com.example.icons_uwb_app.ui.theme.ICONS_UWB_APPTheme
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -103,6 +102,32 @@ fun HomeScreen(
     environmentEditViewModel: EnvironmentEditViewModel,
     serialViewModel: SerialViewModel
 ) {
+    /*
+    val context = LocalContext.current
+    // 런타임 권한 요청을 위한 launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // 권한이 허용됨
+            Log.d("PermissionRequest", "READ_EXTERNAL_STORAGE permission granted")
+        } else {
+            // 권한이 거부됨
+            Log.d("PermissionRequest", "READ_EXTERNAL_STORAGE permission denied")
+        }
+    }
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        // 권한이 없을 경우 요청 실행
+        permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+    } else {
+        // 권한이 이미 있음
+        Log.d("PermissionRequest", "Permission already granted")
+    }
+    */
+
+
+
+
     val homeUiState by homeScreenViewModel.homeUiState.collectAsState()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -113,11 +138,11 @@ fun HomeScreen(
                     title = environment.title,
                     index = environment.id,
                     anchors = environment.anchors,
-                    imagePainterID = environment.imagePainterID,
+                    imageUri = environment.imageUri,
                     lastConnected = environment.lastConnectedDate
                     , toDetails = {
                         homeScreenViewModel.setSelectedID(environment.id)
-                        navigateToEnvironmentDetail(UWBEnvironment(id=environment.id,title=environment.title,anchors =environment.anchors, imagePainterID = environment.imagePainterID))
+                        navigateToEnvironmentDetail(UWBEnvironment(id=environment.id,title=environment.title,anchors =environment.anchors, imageUri = environment.imageUri))
                     },
                     mainViewModel = mainViewModel,
                     serialViewModel = serialViewModel,
@@ -132,13 +157,23 @@ fun HomeScreen(
 }
 
 @Composable
-fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imagePainterID: Int, lastConnected: String,
+fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageUri: Uri?, lastConnected: String,
                        toDetails : () -> Unit,
                        mainViewModel: MainSerialViewModel,
                        environmentEditViewModel: EnvironmentEditViewModel,
                        serialViewModel: SerialViewModel) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    val contentResolver = context.contentResolver
+    if(imageUri!=null) {
+        try {
+            val inputStream = contentResolver.openInputStream(imageUri!!)
+            inputStream?.close()
+        } catch (e: Exception) {
+            Log.e("ImageLoad", "Unable to access URI: $imageUri", e)
+        }
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -191,18 +226,25 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                     horizontalAlignment = Alignment.Start
                 ) {
 
-                    Spacer(modifier = Modifier.height(120.dp))
-                    Spacer(modifier = Modifier.width(160.dp))
-                    /*
-                    if (imagePainterID != 0) {
-                        Image(
-                            painterResource(id = imagePainterID),
-                            "map", modifier =
-                            Modifier
+                    //Spacer(modifier = Modifier.height(120.dp))
+                    //Spacer(modifier = Modifier.width(160.dp))
+
+                    if (imageUri != null) {
+                        Log.d("HomeImage","imageUri: $imageUri")
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUri)
+                                .size(160, 110) // 원하는 해상도 크기로 조정
+                                .diskCachePolicy(CachePolicy.DISABLED) // 캐시 활성화
+                                .build()
+                                ,
+                            contentDescription = "map",
+                            modifier = Modifier
                                 .width(160.dp)
                                 .height(110.dp)
                         )
                     } else {
+                        Log.d("HomeImage","nononononon")
                         Box(
                             modifier = Modifier
                                 .background(Color.LightGray)
@@ -220,7 +262,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                             )
                         }
                     }
-                     */
+
                 }
                 Column(
                     modifier = Modifier
@@ -276,7 +318,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
                                     serialViewModel.updateAnchorList(anchors)
                                     serialViewModel.connectSerialDevice(context)
                                     mainViewModel.connectEnvironment(
-                                        UWBEnvironment(index, title, anchors, imagePainterID)
+                                        UWBEnvironment(index, title, anchors, imageUri)
                                     )
                                     environmentEditViewModel.updateUiState()
                                 }
@@ -294,6 +336,7 @@ fun EnvironmentProfile(title : String, index: Int, anchors: List<Anchor>, imageP
         }
     }
 }
+
 @Composable
 fun NewEnvironmentButton(
     onClick: () -> Unit
@@ -329,7 +372,7 @@ fun NewEnvironmentButton(
 @Composable
 fun EnvironmentProfilePreview(){
     ICONS_UWB_APPTheme {
-        EnvironmentProfile(title ="asdf" , index =1 , anchors = mutableListOf() , imagePainterID =R.drawable.ic_launcher_background, lastConnected = "2024-01-01" ,toDetails = {}, mainViewModel = MainSerialViewModel(), serialViewModel = SerialViewModel(application = Application()), environmentEditViewModel = viewModel(factory = AppViewModelProvider.Factory))
+        EnvironmentProfile(title ="asdf" , index =1 , anchors = mutableListOf() , imageUri = null, lastConnected = "2024-01-01" ,toDetails = {}, mainViewModel = MainSerialViewModel(), serialViewModel = SerialViewModel(application = Application()), environmentEditViewModel = viewModel(factory = AppViewModelProvider.Factory))
     }
 }
 @Preview(showBackground = true)

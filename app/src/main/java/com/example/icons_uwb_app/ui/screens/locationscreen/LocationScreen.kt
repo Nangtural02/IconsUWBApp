@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.icons_uwb_app.MainSerialViewModel
 import com.example.icons_uwb_app.R
 import com.example.icons_uwb_app.data.environments.getPoint
@@ -46,12 +47,25 @@ fun LocationScreen(mainViewModel: MainSerialViewModel, serialViewModel: SerialVi
         modifier = Modifier
         .fillMaxWidth()
         .padding(end = 5.dp)) {
-        CoordinatePlane(
-            anchorList = mainViewModel.uiState.collectAsState().value.connectedEnvironmentAnchors.map { it.getPoint() },
-            pointsList = listOf(data.value.toPoint()),
-            distanceList = data.value.distanceList.map{it.distance},
-            displayDistanceCircle = mainViewModel.uiState.collectAsState().value.displayDistanceCircle
-        )
+        ZoomableBox {
+                AsyncImage(
+                    model = mainViewModel.uiState.collectAsState().value.connectedEnvironmentImage,
+                    contentDescription = "backGroundImage"
+                )
+
+                CoordinatePlane(
+                    anchorList = mainViewModel.uiState.collectAsState().value.connectedEnvironmentAnchors.map { it.getPoint() },
+                    pointsList = listOf(data.value.toPoint()),
+                    distanceList = data.value.distanceList.map{it.distance},
+                    displayDistanceCircle = mainViewModel.uiState.collectAsState().value.toggleDistanceCircle,
+                    toggleGrid = mainViewModel.uiState.collectAsState().value.toggleGrid,
+                    toggleAxis = mainViewModel.uiState.collectAsState().value.toggleAxis,
+                    scale = scale,
+                    offsetX = offsetX,
+                    offsetY = offsetY
+                )
+        }
+
         if(data.value.toPoint().z!=0f){
             Text(text = "(${"%.2f".format(data.value.toPoint().x)},${"%.2f".format(data.value.toPoint().y)},±${"%.2f".format(data.value.toPoint().z)})",
                 style = TextStyle(
@@ -147,7 +161,7 @@ fun ZoomableImage() {
 
 @Composable
 fun ZoomableBox(
-    modifier: Modifier = Modifier.background(Color.LightGray),
+    modifier: Modifier = Modifier.background(Color.Transparent),
     minScale: Float = 1f,
     maxScale: Float = 5f,
     content: @Composable ZoomableBoxScope.() -> Unit
@@ -156,16 +170,27 @@ fun ZoomableBox(
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
     var size by remember { mutableStateOf(IntSize.Zero) }
+
     Box(
         modifier = modifier
             .clip(RectangleShape)
             .onSizeChanged { size = it }
             .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale = maxOf(minScale, minOf(scale * zoom, maxScale))
+                detectTransformGestures { centroid, pan, zoom, _ ->
+                    val newScale = maxOf(minScale, minOf(scale * zoom, maxScale))
+
+                    // 줌 중심점 계산 (중앙을 기준으로 보정)
+                    val scaleFactor = newScale / scale
+                    offsetX = (offsetX + (1 - scaleFactor) * (centroid.x - offsetX))
+                    offsetY = (offsetY + (1 - scaleFactor) * (centroid.y - offsetY))
+
+                    scale = newScale
+
+                    // 팬 동작 처리
                     val maxX = (size.width * (scale - 1)) / 2
                     val minX = -maxX
                     offsetX = maxOf(minX, minOf(maxX, offsetX + pan.x))
+
                     val maxY = (size.height * (scale - 1)) / 2
                     val minY = -maxY
                     offsetY = maxOf(minY, minOf(maxY, offsetY + pan.y))
@@ -176,6 +201,8 @@ fun ZoomableBox(
         scope.content()
     }
 }
+
+
 
 interface ZoomableBoxScope {
     val scale: Float
